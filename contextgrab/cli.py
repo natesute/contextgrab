@@ -87,23 +87,27 @@ def walk_directory(path: Path, include_outputs: bool = False) -> str:
 
 def main(argv: List[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description='Copy file or folder contents')
-    parser.add_argument('path', help='File or directory to copy')
+    parser.add_argument('paths', nargs='+', help='Files or directories to copy')
     parser.add_argument('--include-outputs', action='store_true', help='Include notebook outputs')
     parser.add_argument('--stdout', action='store_true', help='Print to stdout instead of copying')
     args = parser.parse_args(argv)
 
-    target = Path(args.path).resolve()
-    if target.is_dir():
-        text = walk_directory(target, args.include_outputs)
-    elif target.is_file():
-        header = f"FILE: {target.name}"
-        if target.suffix == '.ipynb':
-            body = read_notebook(target, args.include_outputs)
+    texts: List[str] = []
+    for p in args.paths:
+        target = Path(p).resolve()
+        if target.is_dir():
+            texts.append(walk_directory(target, args.include_outputs))
+        elif target.is_file():
+            header = f"FILE: {target.name}"
+            if target.suffix == '.ipynb':
+                body = read_notebook(target, args.include_outputs)
+            else:
+                body = read_file(target)
+            texts.append(f"{header}\n{body}")
         else:
-            body = read_file(target)
-        text = f"{header}\n{body}"
-    else:
-        raise SystemExit(f"Path not found: {target}")
+            raise SystemExit(f"Path not found: {target}")
+
+    text = '\n'.join(texts)
 
     if args.stdout:
         print(text)

@@ -63,3 +63,16 @@ def test_stdout_flag(tmp_path, capsys):
     cli.main(["--stdout", str(file)])
     out = capsys.readouterr().out.strip()
     assert out == "FILE: hello.txt\nhey"
+
+
+def test_multiple_paths(tmp_path, monkeypatch):
+    a = tmp_path / "a.txt"
+    b = tmp_path / "b.txt"
+    a.write_text("A")
+    b.write_text("B")
+
+    box = Box()
+    monkeypatch.setattr(pyperclip, "copy", lambda text: setattr(box, "value", text))
+    cli.main([str(a), str(b)])
+    assert "FILE: a.txt\nA" in box.value
+    assert "FILE: b.txt\nB" in box.value
