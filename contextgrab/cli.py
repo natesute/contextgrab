@@ -1,5 +1,6 @@
 import argparse
 import os
+import sys
 from pathlib import Path
 from typing import List
 
@@ -87,11 +88,28 @@ def walk_directory(path: Path, include_outputs: bool = False) -> str:
 
 def main(argv: List[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description='Copy file or folder contents')
+    parser.add_argument('paths', nargs='+', help='Files or directories to copy')
     parser.add_argument('path', help='File or directory to copy')
     parser.add_argument('--include-outputs', action='store_true', help='Include notebook outputs')
     parser.add_argument('--stdout', action='store_true', help='Print to stdout instead of copying')
     args = parser.parse_args(argv)
 
+    texts: List[str] = []
+    for p in args.paths:
+        target = Path(p).resolve()
+        if target.is_dir():
+            texts.append(walk_directory(target, args.include_outputs))
+        elif target.is_file():
+            header = f"FILE: {target.name}"
+            if target.suffix == '.ipynb':
+                body = read_notebook(target, args.include_outputs)
+            else:
+                body = read_file(target)
+            texts.append(f"{header}\n{body}")
+        else:
+            raise SystemExit(f"Path not found: {target}")
+
+    text = '\n'.join(texts)
     target = Path(args.path).resolve()
     if target.is_dir():
         text = walk_directory(target, args.include_outputs)
@@ -110,6 +128,14 @@ def main(argv: List[str] | None = None) -> None:
         return
     try:
         pyperclip.copy(text)
+        print("Copied to clipboard.")
+    except pyperclip.PyperclipException as exc:
+        print(f"Failed to copy to clipboard: {exc}", file=sys.stderr)
+        if sys.platform.startswith("linux"):
+            print(
+                "On Linux, install `xclip` or `xsel`, or use --stdout.",
+                file=sys.stderr,
+            )
         print('Copied to clipboard.')
     except pyperclip.PyperclipException:
         print(text)
